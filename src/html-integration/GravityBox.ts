@@ -1,35 +1,28 @@
-import * as Matter from "matter-js";
+import {Mouse, Engine, Render, Runner, Events, Composite, MouseConstraint} from "matter-js";
 import GravityBoxItem from "./GravityBoxItem";
-
-const Engine = Matter.Engine,
-	Render = Matter.Render,
-	Runner = Matter.Runner,
-	Bodies = Matter.Bodies,
-	Events = Matter.Events,
-	//Events = Matter.Events,
-	//Body = Matter.Body,
-	Composite = Matter.Composite,
-	MouseConstraint = Matter.MouseConstraint;
-
+import GravityPointer from "./GravityPointer.ts";
+import {GravityWalls} from "./GravityWalls.ts";
 
 // Изменять stiffness при коллизии драг объекта с любой из стен
 // по дефолту 0.2 должно быть
-const DEFAULT_STIFFNESS = 0.05
-const LOWER_STIFFNESS = 0.005
+const DEFAULT_STIFFNESS = 0.1
+// const LOWER_STIFFNESS = 0.02
 
 type TOptions = {
 	container: HTMLElement;
 	items: HTMLElement[];
 };
 export default class GravityBox {
-	engine: Matter.Engine;
-	render: Matter.Render;
-	runner: Matter.Runner;
-	mouseConstraint: Matter.MouseConstraint;
+	engine: Engine;
+	render: Render;
+	runner: Runner;
+	mouseConstraint: MouseConstraint;
 	items: GravityBoxItem[];
+	stikyItems: GravityBoxItem[];
 	container: HTMLElement;
-
-	wallWidth: number;
+	containerRect: DOMRect;
+	gravityPointer: GravityPointer;
+	gravityWalls: GravityWalls;
 
 	dragBody: HTMLElement | null;
 	isAttracted: boolean;
@@ -39,12 +32,17 @@ export default class GravityBox {
 		this.isAttracted = false;
 		this.targetPosition = { x: 0, y: 0 };
 		this.container = options.container;
+		this.containerRect = options.container.getBoundingClientRect()
 
 		this.dragBody = null;
-		this.wallWidth = 10;
 
+		this.gravityWalls = new GravityWalls(options.container)
+
+		this.stikyItems = []
 		this.items = options.items.map(
-			(item) => new GravityBoxItem({ container: item, parentContainer: options.container })
+			(item) => new GravityBoxItem({
+				container: item
+			})
 		);
 		// engine?
 		this.engine = Engine.create({});
@@ -67,12 +65,11 @@ export default class GravityBox {
 
 		this.runner = Runner.create();
 
-		// mouse?
+		const mouse = Mouse.create(options.container)
 		this.mouseConstraint = MouseConstraint.create(
-			// @ts-ignore
 			this.engine,
 			{
-				element: options.container,
+				mouse: mouse,
 				constraint: {
 					stiffness: DEFAULT_STIFFNESS,
 					render: {
@@ -82,39 +79,26 @@ export default class GravityBox {
 			}
 		);
 
-		// fixme why 40px? its hello tag in the bottom shift all view
-		const groundTop = Bodies.rectangle(containerWidth / 2, 0, containerWidth, this.wallWidth, {
-			isStatic: true,
-			render: { fillStyle: "tomato" },
-		});
-		const groundBottom = Bodies.rectangle(containerWidth / 2, containerHeight, containerWidth, this.wallWidth, {
-			isStatic: true,
-			render: { fillStyle: "tomato" },
-		});
-		const groundLeft = Bodies.rectangle(-1, containerHeight / 2, this.wallWidth, containerHeight, {
-			isStatic: true,
-			render: { fillStyle: "tomato" },
-		});
-		const groundRight = Bodies.rectangle(containerWidth + 1, containerHeight / 2, this.wallWidth, containerHeight, {
-			isStatic: true,
-			render: { fillStyle: "tomato" },
-		});
-
-		const walls = [groundBottom, groundRight, groundLeft, groundTop];
+		const walls = this.gravityWalls.getWalls()
 
 		Composite.add(this.engine.world, [...this.items.map((item) => item.body), this.mouseConstraint, ...walls]);
+
+		this.gravityPointer = new GravityPointer(options.container)
 	}
 
 	initEvents() {
 		Events.on(this.mouseConstraint, "mousedown", (e) => {
+			this.gravityPointer.updatePosition(e.mouse.position)
+			this.gravityPointer.setCursorType('gravity')
+
 			this.engine.gravity.scale = 0;
 			this.targetPosition.x = e.mouse.position.x;
 			this.targetPosition.y = e.mouse.position.y;
-
 			this.isAttracted = true;
 		});
 
 		Events.on(this.mouseConstraint, "mousemove", (e) => {
+			this.gravityPointer.updatePosition(e.mouse.position)
 			if (!this.isAttracted) {
 				return;
 			}
@@ -124,6 +108,10 @@ export default class GravityBox {
 		});
 
 		Events.on(this.mouseConstraint, "mouseup", () => {
+			this.gravityPointer.setCursorType('default')
+
+			this.stikyItems = []
+
 			this.engine.gravity.scale = 0.001;
 			this.isAttracted = false;
 			this.targetPosition.x = 0;
@@ -135,7 +123,22 @@ export default class GravityBox {
 				return;
 			}
 
-			this.items.forEach((body) => {
+			this.items.forEach((item) => {
+				if(this.gravityPointer.isInCursorArea(item.body.position) && !this.stikyItems.includes(item)) {
+					// console.log('body', body)
+
+					// Body.setMass(item.body, 0)
+
+					// item.body.gravityScale = 0
+					// item.body.ignoreGravity = true;
+					// Body.applyForce(item.body, item.body.position, {
+					// 	x: -this.engine.world.gravity.x * this.engine.world.gravity.scale * item.body.mass,
+					// 	y: -this.engine.world.gravity.y * this.engine.world.gravity.scale * item.body.mass
+					// });
+					this.stikyItems.push(item)
+				}
+			});
+			this.stikyItems.forEach((body) => {
 				body.moveToPosition(this.targetPosition);
 			});
 		});
@@ -148,26 +151,18 @@ export default class GravityBox {
 			this.dragBody = null;
 		});
 
-
-        this.container.addEventListener("mouseenter", () => {
-            this.mouseConstraint.constraint.stiffness = DEFAULT_STIFFNESS
+		this.container.addEventListener("mouseleave", (e) => {
+			this.mouseConstraint.mouse.mouseup(e);
 		});
 
-		this.container.addEventListener("mouseleave", () => {
-            this.mouseConstraint.constraint.stiffness = LOWER_STIFFNESS
-			Events.trigger(this.mouseConstraint, "mouseup");
-			Events.trigger(this.mouseConstraint, "enddrag");
-		});
+		window.addEventListener('touchmove', (e) => {
+			if(this.gravityWalls.isIntersectingWalls({x: e.touches[0].clientX, y: e.touches[0].clientY})) {
+				this.mouseConstraint.mouse.mouseup(e);
+			}
+		})
 	}
 
 	start() {
-		// const engine = this.engine;
-		// const items = this.items;
-		// (function rerender() {
-		//     items.forEach(item=>item.render())
-		//     Matter.Engine.update(engine);
-		//     requestAnimationFrame(rerender);
-		// })();
 		Runner.run(this.runner, this.engine);
 		Render.run(this.render);
 		Events.on(this.engine, "beforeUpdate", () => {

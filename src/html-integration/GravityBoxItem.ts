@@ -1,26 +1,23 @@
 import * as Matter from "matter-js";
 
 type TOptions = {
-	parentContainer: HTMLElement;
 	container: HTMLElement;
 };
 
 export default class GravityBoxItem {
-	width: number;
-	height: number;
-	body: Matter.Body;
-	elem: HTMLElement;
-	parentContainerRect: DOMRect;
+	private readonly width: number;
+	private readonly height: number;
+	public readonly body: Matter.Body;
+	private readonly elem: HTMLElement;
 
-    maxVelocity: number;
-    maxImpulse: number;
+	private readonly maxVelocity: number;
+	private readonly maxImpulse: number;
 
 	constructor(options: TOptions) {
         this.maxVelocity = 20
         this.maxImpulse = 25
 
 		const rect = options.container.getBoundingClientRect();
-		this.parentContainerRect = options.parentContainer.getBoundingClientRect();
 
 		let borderRadius = +window.getComputedStyle(options.container).borderRadius.replace("px", "");
 		if (Object.is(borderRadius, NaN)) {
@@ -40,23 +37,7 @@ export default class GravityBoxItem {
 		this.elem = options.container;
 	}
 
-	moveToPosition = (position) => {
-		var dx = position.x - this.body.position.x;
-		var dy = position.y - this.body.position.y;
-		var distance = Math.sqrt(dx * dx + dy * dy);
-
-		if (distance < 5) {
-			return;
-		}
-
-		var speed = distance / 20;
-		var vx = (dx / distance) * speed;
-		var vy = (dy / distance) * speed;
-
-		Matter.Body.translate(this.body, { x: vx, y: vy });
-	};
-
-	limitVelocityAndImpulse = () => {
+	private limitVelocityAndImpulse(){
 		if (this.body.velocity.x > this.maxVelocity) {
 			Matter.Body.setVelocity(this.body, { x: this.maxVelocity, y: this.body.velocity.y });
 		}
@@ -74,16 +55,24 @@ export default class GravityBoxItem {
 		}
 	};
 
-	isBodyPositionInvalid = (top: number, left: number) => {
-		return (
-			top > this.parentContainerRect.height + this.parentContainerRect.top + 10 ||
-			top < this.parentContainerRect.top - 10 ||
-			left > this.parentContainerRect.left + this.parentContainerRect.width + 10 ||
-			left < this.parentContainerRect.left - 10
-		);
+	public moveToPosition(position) {
+		const dx = position.x - this.body.position.x;
+		const dy = position.y - this.body.position.y;
+		const distance = Math.sqrt(dx * dx + dy * dy);
+
+		if (distance < 5) {
+			return;
+		}
+
+		const speed = distance / 20;
+		// const speed = distance / 5;
+		const vx = (dx / distance) * speed;
+		const vy = (dy / distance) * speed;
+
+		Matter.Body.translate(this.body, { x: vx, y: vy });
 	};
 
-	render() {
+	public render() {
 		this.limitVelocityAndImpulse();
 		const { x, y } = this.body.position;
 
@@ -91,12 +80,12 @@ export default class GravityBoxItem {
 		const left = x - this.width / 2;
 
         // FIXME - Объекты, которые выпадают за пределы стен иногда появляются в левом верхнем углу
-		if (this.isBodyPositionInvalid(top, left)) {
-			Matter.Body.setPosition(this.body, {
-				x: Math.min(Math.max(this.body.position.x - 20, 20), this.parentContainerRect.width - 20),
-				y: Math.min(Math.max(this.body.position.y - 20, 20), this.parentContainerRect.height - 20),
-			});
-		}
+		// if (this.gravityWalls.isIntersectingWalls({x: left, y: top})) {
+		// 	Matter.Body.setPosition(this.body, {
+		// 		x: Math.min(Math.max(this.body.position.x - 20, 20), this.parentContainerRect.width - 20),
+		// 		y: Math.min(Math.max(this.body.position.y - 20, 20), this.parentContainerRect.height - 20),
+		// 	});
+		// }
 
 		this.elem.style.top = `${top}px`;
 		this.elem.style.left = `${left}px`;
