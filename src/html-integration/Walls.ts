@@ -1,8 +1,8 @@
 import * as Matter from "matter-js";
 import {Position} from "../types";
 
-export class GravityWalls {
-    private readonly groundTop;
+export class Walls {
+    // private readonly groundTop;
     private readonly groundBottom;
     private readonly groundLeft;
     private readonly groundRight;
@@ -15,10 +15,10 @@ export class GravityWalls {
         const containerHeight = container.clientHeight;
 
         this.containerRect = container.getBoundingClientRect();
-        this.groundTop = Matter.Bodies.rectangle(containerWidth / 2, -(this.wallWidth / 2), containerWidth, this.wallWidth, {
-            isStatic: true,
-            render: { fillStyle: "transparent" },
-        });
+        // this.groundTop = Matter.Bodies.rectangle(containerWidth / 2, -(this.wallWidth / 2), containerWidth, this.wallWidth, {
+        //     isStatic: true,
+        //     render: { fillStyle: "transparent" },
+        // });
         this.groundBottom = Matter.Bodies.rectangle(containerWidth / 2, containerHeight + this.wallWidth / 2, containerWidth, this.wallWidth, {
             isStatic: true,
             render: { fillStyle: "transparent" },
@@ -34,7 +34,7 @@ export class GravityWalls {
     }
 
     public getWalls() {
-        return [this.groundTop, this.groundBottom, this.groundLeft, this.groundRight]
+        return [this.groundBottom, this.groundLeft, this.groundRight]
     }
 
     public isIntersectingWalls(position: Position) {

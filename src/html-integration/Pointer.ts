@@ -2,7 +2,7 @@ import {Position} from "../types";
 
 type CursorType = 'default' | 'gravity'
 
-export default class GravityPointer {
+export default class Pointer {
     private position: Position = {x: 0, y: 0}
     private cursorNode: HTMLElement | null = null
     private readonly container: HTMLElement
@@ -51,7 +51,7 @@ export default class GravityPointer {
             return
         }
 
-        document.body.style.cursor = 'none'
+        // document.body.style.cursor = 'none'
 
         this.cursorNode = document.createElement('div')
         this.cursorNode.classList.add('gravity-cursor', 'gravity-cursor-show')

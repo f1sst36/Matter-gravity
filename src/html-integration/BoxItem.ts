@@ -1,10 +1,7 @@
 import * as Matter from "matter-js";
+import {Position} from "../types";
 
-type TOptions = {
-	container: HTMLElement;
-};
-
-export default class GravityBoxItem {
+export default class BoxItem {
 	private readonly width: number;
 	private readonly height: number;
 	public readonly body: Matter.Body;
@@ -13,19 +10,19 @@ export default class GravityBoxItem {
 	private readonly maxVelocity: number;
 	private readonly maxImpulse: number;
 
-	constructor(options: TOptions) {
+	constructor(container: HTMLElement, position: Position) {
         this.maxVelocity = 20
         this.maxImpulse = 25
 
-		const rect = options.container.getBoundingClientRect();
+		const rect = container.getBoundingClientRect();
 
-		let borderRadius = +window.getComputedStyle(options.container).borderRadius.replace("px", "");
+		let borderRadius = +window.getComputedStyle(container).borderRadius.replace("px", "");
 		if (Object.is(borderRadius, NaN)) {
 			borderRadius = 0;
 		}
 		this.width = rect.width;
 		this.height = rect.height;
-		this.body = Matter.Bodies.rectangle(Math.random() * 500, Math.random() * 500, this.width, this.height, {
+		this.body = Matter.Bodies.rectangle(position.x, position.y, this.width, this.height, {
 			chamfer: {
 				radius: borderRadius,
 			},
@@ -34,7 +31,7 @@ export default class GravityBoxItem {
 			},
 		});
 
-		this.elem = options.container;
+		this.elem = container;
 	}
 
 	private limitVelocityAndImpulse(){
@@ -72,20 +69,16 @@ export default class GravityBoxItem {
 		Matter.Body.translate(this.body, { x: vx, y: vy });
 	};
 
+	public remove() {
+		//
+	}
+
 	public render() {
 		this.limitVelocityAndImpulse();
 		const { x, y } = this.body.position;
 
 		const top = y - this.height / 2;
 		const left = x - this.width / 2;
-
-        // FIXME - Объекты, которые выпадают за пределы стен иногда появляются в левом верхнем углу
-		// if (this.gravityWalls.isIntersectingWalls({x: left, y: top})) {
-		// 	Matter.Body.setPosition(this.body, {
-		// 		x: Math.min(Math.max(this.body.position.x - 20, 20), this.parentContainerRect.width - 20),
-		// 		y: Math.min(Math.max(this.body.position.y - 20, 20), this.parentContainerRect.height - 20),
-		// 	});
-		// }
 
 		this.elem.style.top = `${top}px`;
 		this.elem.style.left = `${left}px`;
